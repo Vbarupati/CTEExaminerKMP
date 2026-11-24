@@ -1,27 +1,16 @@
-import Foundation
+﻿import Foundation
 import SharedLogic
 
 @MainActor
 final class LoginViewModel: ObservableObject {
     @Published var state: LoginState
-
-    private let store: LoginStore
-
+    private let store: LoginStoreIos
     init(container: IosContainer) {
-        self.store = container.makeLoginStore()
-        self.state = store.state.value          // SKIE exposes StateFlow.value
-        observe()
+        let store = container.makeLoginStore()
+        self.store = store
+        self.state = store.current
+        store.observe { [weak self] s in self?.state = s }
     }
-
-    private func observe() {
-        Task { [weak self] in
-            guard let self else { return }
-            for await s in store.state {         // SKIE: StateFlow is an AsyncSequence
-                self.state = s
-            }
-        }
-    }
-
     func onUsername(_ v: String) { store.onUsernameChange(value: v) }
     func onPassword(_ v: String) { store.onPasswordChange(value: v) }
     func togglePassword()        { store.togglePasswordVisibility() }

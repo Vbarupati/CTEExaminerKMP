@@ -1,0 +1,40 @@
+﻿package com.cte.examiner.di
+
+import com.cte.examiner.presentation.home.HomeState
+import com.cte.examiner.presentation.home.HomeStore
+import com.cte.examiner.presentation.login.LoginState
+import com.cte.examiner.presentation.login.LoginStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+
+class LoginStoreIos(private val store: LoginStore) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    val current: LoginState get() = store.state.value
+    fun observe(onEach: (LoginState) -> Unit) { scope.launch { store.state.collect { onEach(it) } } }
+    fun onUsernameChange(value: String) = store.onUsernameChange(value)
+    fun onPasswordChange(value: String) = store.onPasswordChange(value)
+    fun togglePasswordVisibility() = store.togglePasswordVisibility()
+    fun login() = store.login()
+    fun dispose() { scope.cancel() }
+}
+
+class HomeStoreIos(private val store: HomeStore) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    val current: HomeState get() = store.state.value
+    fun observe(onEach: (HomeState) -> Unit) { scope.launch { store.state.collect { onEach(it) } } }
+    fun loadUserInfo() = store.loadUserInfo()
+    fun onScan(scannedValue: String) = store.onScan(scannedValue)
+    fun clearResult() = store.clearResult()
+    fun logout() = store.logout()
+    fun dispose() { scope.cancel() }
+}
+
+class SettingsIos(private val appContainer: AppContainer) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    fun observeBaseUrl(onEach: (String) -> Unit) { scope.launch { appContainer.getBaseUrl().collect { onEach(it) } } }
+    fun setBaseUrl(url: String) { scope.launch { appContainer.setBaseUrl(url) } }
+    fun dispose() { scope.cancel() }
+}

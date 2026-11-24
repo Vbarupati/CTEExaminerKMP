@@ -1,30 +1,18 @@
-import Foundation
+﻿import Foundation
 import SharedLogic
 
 @MainActor
 final class ScanViewModel: ObservableObject {
     @Published var state: HomeState
-
-    private let store: HomeStore
-
+    private let store: HomeStoreIos
     init(container: IosContainer) {
-        self.store = container.makeHomeStore()
-        self.state = store.state.value
-        observe()
-        store.loadUserInfo()          // load examiner profile
+        let store = container.makeHomeStore()
+        self.store = store
+        self.state = store.current
+        store.observe { [weak self] s in self?.state = s }
+        store.loadUserInfo()
     }
-
-    private func observe() {
-        Task { [weak self] in
-            guard let self else { return }
-            for await s in store.state {
-                self.state = s
-            }
-        }
-    }
-
     var examinerName: String { state.userInfo?.fullName ?? "" }
-
     func onScan(_ code: String) { store.onScan(scannedValue: code) }
     func clearResult()          { store.clearResult() }
     func logout()               { store.logout() }

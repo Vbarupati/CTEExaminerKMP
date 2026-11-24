@@ -1,3 +1,10 @@
+﻿name: ios-build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ dev, main, master ]
+
 jobs:
   ios-build:
     runs-on: macos-13
@@ -6,7 +13,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
       - run: chmod +x ./gradlew
       - name: Build shared framework (Intel simulator)
         run: ./gradlew :sharedLogic:linkDebugFrameworkIosX64
@@ -21,7 +28,7 @@ jobs:
       - name: Zip the .app
         run: |
           cd iosApp/build/Build/Products/Debug-iphonesimulator
-          zip -r "$GITHUB_WORKSPACE/iosApp-sim.zip" iosApp.app
+          zip -r "$GITHUB_WORKSPACE/iosApp-sim.zip" CTEExaminerKMP.app
       - uses: actions/upload-artifact@v4
         with:
           name: iosApp-Simulator
