@@ -11,12 +11,7 @@ import kotlinx.serialization.json.JsonObject
 // ---------------- Examinee ----------------
 
 fun CQualityBatchNumberDTO.toDomain(): Examinee {
-    val hasIdentity = !ownerName.isNullOrBlank() ||
-            !ownerANum.isNullOrBlank() ||
-            !assetQualityCode.isNullOrBlank()
-
     val rawStatus = status.orEmpty()
-
     return Examinee(
         ownerANum = ownerANum?.takeIf { it.isNotBlank() },
         ownerName = ownerName?.takeIf { it.isNotBlank() },
@@ -26,8 +21,9 @@ fun CQualityBatchNumberDTO.toDomain(): Examinee {
         batchDate = fillBatchDate.dateOnly(),
         expiryDate = expiryDate.dateOnly(),
         status = rawStatus.cleanStatus(),
-        isAllowed = hasIdentity && !rawStatus.isErrorStatus(),
-        assetQualityCode = assetQualityCode.orEmpty()
+        isAllowed = !rawStatus.isErrorStatus(),   // genuine unless status is an error
+        assetQualityCode = assetQualityCode.orEmpty(),
+        found = true                               // ← came from a real 200 record
     )
 }
 

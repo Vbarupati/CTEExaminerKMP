@@ -60,4 +60,7 @@ class HomeStore(
     fun consumeError() {
         _state.update { it.copy(errorMessage = null) }
     }
+    fun clearResult() {
+        _state.update { it.copy(examinee = null, errorMessage = null) }
+    }
 }

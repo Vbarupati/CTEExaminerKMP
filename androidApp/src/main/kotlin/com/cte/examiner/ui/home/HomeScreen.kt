@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,21 +18,40 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.cte.examiner.domain.model.Examinee
 import com.cte.examiner.ui.theme.Navy
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onLoggedOut: () -> Unit = {}
+    onLoggedOut: () -> Unit = {},
+    onOpenSettings: () -> Unit = {}
 ) {
     val state by viewModel.store.state.collectAsStateWithLifecycle()
     val store = viewModel.store
     val context = LocalContext.current
     var code by remember { mutableStateOf("") }
 
-    if (state.loggedOut) onLoggedOut()
+    // Navigate back to login after logout
+    LaunchedEffect(state.loggedOut) {
+        if (state.loggedOut) onLoggedOut()
+    }
+
+    // When we have a result, show the full Scan Result page
+    if (state.examinee != null) {
+        ScanResultScreen(
+            examinee = state.examinee!!,
+            onScanNext = {
+                code = ""
+                store.clearResult()
+            },
+            onBack = {
+                code = ""
+                store.clearResult()
+            }
+        )
+        return
+    }
 
     Scaffold(
         topBar = {
@@ -42,6 +62,9 @@ fun HomeScreen(
                     titleContentColor = Color.White
                 ),
                 actions = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = Color.White)
+                    }
                     IconButton(onClick = store::logout) {
                         Icon(Icons.Filled.Logout, contentDescription = "Logout", tint = Color.White)
                     }
@@ -97,8 +120,8 @@ fun HomeScreen(
                     scanBarcode(
                         context = context,
                         onResult = { scanned ->
-                            code = scanned          // show it in the field
-                            store.onScan(scanned)   // and look it up
+                            code = scanned
+                            store.onScan(scanned)
                         }
                     )
                 },
@@ -121,50 +144,7 @@ fun HomeScreen(
                 state.errorMessage != null -> {
                     Text(state.errorMessage!!, color = MaterialTheme.colorScheme.error)
                 }
-                state.examinee != null -> {
-                    ExamineeCard(state.examinee!!)
-                }
             }
         }
-    }
-}
-
-@Composable
-private fun ExamineeCard(examinee: Examinee) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            val verified = examinee.isAllowed
-            Surface(
-                color = if (verified) Navy else MaterialTheme.colorScheme.errorContainer,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = if (verified) "VERIFIED" else "NOT VERIFIED",
-                    modifier = Modifier.padding(12.dp),
-                    color = if (verified) Color.White else MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-
-            InfoRow("Code", examinee.assetQualityCode)
-            InfoRow("Owner", examinee.ownerName)
-            InfoRow("Owner #", examinee.ownerANum)
-            InfoRow("Product", examinee.product)
-            InfoRow("Batch", examinee.batchNumber)
-            InfoRow("Batch date", examinee.batchDate)
-            InfoRow("Expiry", examinee.expiryDate)
-            InfoRow("Status", examinee.status)
-        }
-    }
-}
-
-@Composable
-private fun InfoRow(label: String, value: String?) {
-    if (value.isNullOrBlank()) return
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Text("$label:", modifier = Modifier.width(110.dp), style = MaterialTheme.typography.labelLarge)
-        Text(value, style = MaterialTheme.typography.bodyMedium)
     }
 }

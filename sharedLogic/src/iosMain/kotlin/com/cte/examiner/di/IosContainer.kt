@@ -8,27 +8,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import platform.Foundation.NSUserDefaults
 
-/**
- * Single entry point for the iOS app.
- *
- * Swift side:
- *   let container = IosContainer()
- *   let loginVM   = LoginViewModel(store: container.makeLoginStore())
- *   ...
- *   container.close()   // on app teardown
- */
 class IosContainer {
 
-    // iOS key-value storage backing SettingsStore
     private val settings: ObservableSettings =
         NSUserDefaultsSettings(NSUserDefaults.standardUserDefaults)
 
-    // Shared DI graph (repositories, use cases, Ktor client, etc.)
     private val appContainer = AppContainer(settings)
-
-    // One scope owned by the container; SwiftUI stores run on it.
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     fun makeLoginStore(): LoginStore = LoginStore(
@@ -44,8 +32,9 @@ class IosContainer {
         logoutUseCase = appContainer.logoutUseCase
     )
 
-    /** Cancel all running coroutines. Call from the iOS app lifecycle teardown. */
-    fun close() {
-        scope.cancel()
-    }
+    // Settings
+    fun getBaseUrl(): Flow<String> = appContainer.getBaseUrl()
+    suspend fun setBaseUrl(url: String) { appContainer.setBaseUrl(url) }
+
+    fun close() { scope.cancel() }
 }

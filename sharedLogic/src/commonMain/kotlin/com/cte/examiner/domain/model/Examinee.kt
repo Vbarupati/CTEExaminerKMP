@@ -8,7 +8,8 @@ data class Examinee(
     val batchNumber: String? = null,
     val batchDate: String? = null,
     val expiryDate: String? = null,
-    val status: String = "",          // non-null, defaults to ""
+    val status: String = "",
     val isAllowed: Boolean = false,
-    val assetQualityCode: String = "" // non-null, carries the scanned code
+    val assetQualityCode: String = "",
+    val found: Boolean = true          // ← true when the server returned a record
 )
