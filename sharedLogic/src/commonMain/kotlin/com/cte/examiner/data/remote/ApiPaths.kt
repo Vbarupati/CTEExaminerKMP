@@ -17,7 +17,7 @@ object LoginParams {
     val DEVICE_TYPE: String get() = platformDeviceType  // "Android" / "iOS"
     const val R_DEVICE_TID = 0
     const val IP_COUNTRY = "IN"
-    const val ACCESS_TYPE = 517
+    const val ACCESS_TYPE = 511
 }
 
 object SessionHeaders {
