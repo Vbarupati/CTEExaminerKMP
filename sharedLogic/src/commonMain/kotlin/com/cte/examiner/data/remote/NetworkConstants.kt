@@ -17,6 +17,9 @@ object NetworkConstants {
     const val API_VERSION = "1.0"
     val DEFAULT_BASE_URL: String = if (isIos) RELEASE_BASE_URL else TEST_BASE_URL
 
+    /** Public IP lookup for the login's networkIP field. */
+    const val IP_LOOKUP_URL = "https://jsonip.com/"
+
     // Timeouts
     const val CONNECT_TIMEOUT_MS = 30_000L
     const val REQUEST_TIMEOUT_MS = 30_000L
