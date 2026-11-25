@@ -64,7 +64,7 @@ class AuthRepositoryImpl(
     }
 
     override fun isLoggedIn(): Flow<Boolean> =
-        settings.token.map { it.isNotBlank() }
+    settings.token.map { !it.isNullOrBlank() }
 
     /** Public IP for the login's networkIP field (like the original app's jsonip.com call). */
     private suspend fun fetchNetworkIp(): String = runCatching {
