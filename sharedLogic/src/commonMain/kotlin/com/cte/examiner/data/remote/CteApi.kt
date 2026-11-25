@@ -35,6 +35,10 @@ class CteApi(private val client: HttpClient) {
         }
     )
 
+    /** GET https://jsonip.com/ → { "ip": "x.x.x.x", ... } for the login networkIP field. */
+    suspend fun getPublicIp(): HttpResponse =
+        client.get(NetworkConstants.IP_LOOKUP_URL)
+
     /** GET {server}/api/user/person/{userId}  — token added by the client (DefaultRequest) */
     suspend fun getPerson(url: String): HttpResponse =
         client.get(url)
