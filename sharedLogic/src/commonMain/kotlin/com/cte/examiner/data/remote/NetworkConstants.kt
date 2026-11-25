@@ -1,24 +1,29 @@
 package com.cte.examiner.data.remote
 
+import com.cte.examiner.getPlatform
+
 object NetworkConstants {
 
-    /** Server used on first launch, before the user changes it in Settings. */
-    const val DEFAULT_BASE_URL = "http://172.23.114.3/sites/cte/"
+    /** Office network server (Android phone on office Wi-Fi). */
+    const val TEST_BASE_URL = "http://172.23.114.3/sites/cte/"
 
-    /** Ktor client timeouts (milliseconds). */
+    /** Public server (iOS simulator / Appetize — can't reach the office IP). */
+    const val RELEASE_BASE_URL = "https://vjdemo.trakaid.com/sites/cte/"
+
+    /** True when running on iOS (getPlatform().name = "iOS 18.2" …). */
+    private val isIos: Boolean = getPlatform().name.startsWith("iOS", ignoreCase = true)
+
+    /** Android → office IP, iOS → public server. */
+    const val API_VERSION = "1.0"
+    val DEFAULT_BASE_URL: String = if (isIos) RELEASE_BASE_URL else TEST_BASE_URL
+
+    // Timeouts
     const val CONNECT_TIMEOUT_MS = 30_000L
     const val REQUEST_TIMEOUT_MS = 30_000L
     const val SOCKET_TIMEOUT_MS  = 30_000L
-
-    /** Request/response logging (turn off for release). */
     const val ENABLE_LOGGING = true
 
-    /** Content types. */
-    const val CONTENT_TYPE_JSON = "application/json"
-    const val CONTENT_TYPE_FORM = "application/x-www-form-urlencoded"
-
-    /** Common header names / prefixes. */
+    // Headers
     const val HEADER_AUTHORIZATION = "Authorization"
-    const val HEADER_CONTENT_TYPE  = "Content-Type"
     const val BEARER_PREFIX = "Bearer "
 }
