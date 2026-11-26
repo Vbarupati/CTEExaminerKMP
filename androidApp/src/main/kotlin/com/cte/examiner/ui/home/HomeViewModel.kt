@@ -12,8 +12,5 @@ class HomeViewModel(container: AppContainer) : ViewModel() {
         getExaminee = container.getExaminee,
         logoutUseCase = container.logoutUseCase
     )
-
-    init {
-        store.loadUserInfo()   // load profile as soon as the screen opens
-    }
+    // no init block needed — HomeStore loads the profile itself
 }

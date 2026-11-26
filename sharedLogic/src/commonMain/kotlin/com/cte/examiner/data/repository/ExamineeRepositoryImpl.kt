@@ -28,6 +28,7 @@ class ExamineeRepositoryImpl(
 
     override suspend fun getExaminee(qcode: String): Result<Examinee> = safeApiCall {
         val url = settings.urlFor(ApiPaths.EXAMINEE)
+        println("EXAMINEE url: $url?qcode=$qcode")   // ← paste this line from logcat
         val response = api.getExaminee(url, qcode)
 
         when (response.status) {

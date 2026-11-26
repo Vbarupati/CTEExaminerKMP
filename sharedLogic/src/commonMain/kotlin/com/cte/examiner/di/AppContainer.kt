@@ -17,6 +17,7 @@ import com.cte.examiner.domain.usecase.ObserveLoginStateUseCase
 import com.cte.examiner.domain.usecase.SetBaseUrlUseCase
 import com.russhwolf.settings.ObservableSettings
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.json.JsonObject
 
 class AppContainer(settings: ObservableSettings) {
 
@@ -29,12 +30,10 @@ class AppContainer(settings: ObservableSettings) {
 
     private val api = CteApi(httpClient)
 
-    // Repositories
     private val authRepository = AuthRepositoryImpl(api, settingsStore)
     private val examineeRepository = ExamineeRepositoryImpl(api, settingsStore)
     private val settingsRepository = SettingsRepositoryImpl(settingsStore)
 
-    // Use cases — ViewModels / stores read these
     val loginUseCase = LoginUseCase(authRepository)
     val logoutUseCase = LogoutUseCase(authRepository)
     val observeLoginState = ObserveLoginStateUseCase(authRepository)
@@ -46,9 +45,21 @@ class AppContainer(settings: ObservableSettings) {
     /** Session headers (UserId, SubsNum, api-version) added to every request after login. */
     private suspend fun buildSessionHeaders(): Map<String, String> {
         val headers = mutableMapOf("api-version" to "1.0")
-        val json = settingsStore.sessionJson.first()?.toJsonObjectOrNull() ?: return headers
-        json.findString("userProfileId", "UserId")?.let { headers["UserId"] = it }
-        json.findString("subsNum", "SubsNum")?.let { headers["SubsNum"] = it }
+        val json = settingsStore.sessionJson.first()?.toJsonObjectOrNull() ?: run {
+            println("CTE_HEADERS: $headers (no session json)")
+            return headers
+        }
+
+        // subsNum / userProfileId may be top-level OR inside the merged "person" object
+        val person = json["person"] as? JsonObject
+
+        (json.findString("userProfileId", "UserId") ?: person?.findString("userProfileId", "UserId"))
+            ?.let { headers["UserId"] = it }
+
+        (json.findString("subsNum", "SubsNum") ?: person?.findString("subsNum", "SubsNum"))
+            ?.let { headers["SubsNum"] = it }
+
+        println("CTE_HEADERS: $headers")      // ← paste this after re-login
         return headers
     }
 }

@@ -11,19 +11,20 @@ import kotlinx.serialization.json.JsonObject
 // ---------------- Examinee ----------------
 
 fun CQualityBatchNumberDTO.toDomain(): Examinee {
+    val hasRecord = !assetQualityCode.isNullOrBlank()      // asset registered in Trakaid
     val rawStatus = status.orEmpty()
     return Examinee(
         ownerANum = ownerANum?.takeIf { it.isNotBlank() },
         ownerName = ownerName?.takeIf { it.isNotBlank() },
         product = product?.takeIf { it.isNotBlank() },
-        filledAt = filledAt?.takeIf { it.isNotBlank() },
+        filledAt = fillCmpLoc?.takeIf { it.isNotBlank() },
         batchNumber = fillBatchNum?.takeIf { it.isNotBlank() },
-        batchDate = fillBatchDate.dateOnly(),
-        expiryDate = expiryDate.dateOnly(),
-        status = rawStatus.cleanStatus(),
-        isAllowed = !rawStatus.isErrorStatus(),   // genuine unless status is an error
+        batchDate = batchStartDtTm.dateOnly(),
+        expiryDate = batchEndDtTm.dateOnly(),
+        status = rawStatus.cleanStatus().ifBlank { "Status not available" },
+        isAllowed = hasRecord,       // ← genuine if the asset exists (delivery is separate)
         assetQualityCode = assetQualityCode.orEmpty(),
-        found = true                               // ← came from a real 200 record
+        found = hasRecord,           // ← true 200 with a code = found
     )
 }
 
