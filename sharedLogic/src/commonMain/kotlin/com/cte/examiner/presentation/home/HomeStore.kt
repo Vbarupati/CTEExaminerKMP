@@ -13,8 +13,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-
-
 class HomeStore(
     private val scope: CoroutineScope,
     private val getUserInfo: GetUserInfoUseCase,
@@ -24,15 +22,13 @@ class HomeStore(
     private val _state = MutableStateFlow(HomeState())
     val state: StateFlow<HomeState> = _state.asStateFlow()
 
-    init { loadUser() }
-
-    private fun loadUser() {
+    fun loadUserInfo() {
         scope.launch {
             getUserInfo().onSuccess { user -> _state.update { it.copy(userInfo = user) } }
         }
     }
 
-    fun onScan(qrValue: String) {                                   // ← onScan (was 'scan')
+    fun onScan(qrValue: String) {
         if (qrValue.isBlank()) return
         _state.update { it.copy(isLoading = true, errorMessage = null) }
         scope.launch {
@@ -55,7 +51,7 @@ class HomeStore(
 
     fun clearResult() { _state.update { it.copy(examinee = null, errorMessage = null) } }
 
-    fun logout() {                                                  // ← no args (was logout(onDone))
+    fun logout() {
         scope.launch {
             logoutUseCase()
             _state.update { it.copy(loggedOut = true) }
