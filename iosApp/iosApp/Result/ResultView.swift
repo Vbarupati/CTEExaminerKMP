@@ -19,15 +19,13 @@ private extension Color {
 }
 
 struct ResultView: View {
-    @StateObject var vm: ResultViewModel
-    let code: String
+    let examinee: Examinee
     let onScanNext: () -> Void
 
     var body: some View {
         VStack(spacing: 0) { topBar; content }
             .background(Color.pageBackground.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) { scanNextBar }
-            .onAppear { vm.lookup(code) }
     }
 
     private var topBar: some View {
@@ -55,14 +53,10 @@ struct ResultView: View {
     }
 
     @ViewBuilder private var content: some View {
-        if let message = vm.errorMessage {
-            ScrollView { ErrorContent(message: message, actionLabel: "Scan again", onAction: onScanNext) }
-        } else if let info = vm.examinee {
-            if isAssetNotFound(info) { ScrollView { AssetNotFoundContent(code: info.assetQualityCode) } }
-            else { ScrollView { ResultContent(info: info) } }
+        if isAssetNotFound(examinee) {
+            ScrollView { AssetNotFoundContent(code: examinee.assetQualityCode) }
         } else {
-            VStack(spacing: 12) { ProgressView().tint(.brandOrange); Text("Fetching details…") }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            ScrollView { ResultContent(info: examinee) }
         }
     }
 
@@ -315,28 +309,4 @@ private struct CapsLabel: View {
     let text: String; let color: Color
     init(_ text: String, color: Color) { self.text = text; self.color = color }
     var body: some View { Text(text).font(.system(size: 11, weight: .heavy)).foregroundColor(color) }
-}
-
-private struct ErrorContent: View {
-    let message: String, actionLabel: String, onAction: () -> Void
-    var body: some View {
-        VStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 8) {
-                CardLabel("STATUS")
-                HStack {
-                    Image(systemName: "exclamationmark.circle").foregroundColor(.errorRed)
-                    Text(message).font(.system(size: 17, weight: .bold)).foregroundColor(.errorRed)
-                }
-            }
-            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.errorRed.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.errorRed.opacity(0.35)))
-            Button(action: onAction) {
-                Text(actionLabel).foregroundColor(.errorRed)
-                    .padding(.horizontal, 24).padding(.vertical, 10)
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.errorRed.opacity(0.5)))
-            }
-        }
-        .padding(16)
-    }
 }
