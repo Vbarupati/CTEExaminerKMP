@@ -8,5 +8,6 @@ data class HomeState(
     val examinee: Examinee? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val loggedOut: Boolean = false
+    val loggedOut: Boolean = false,
+    val sessionExpired: Boolean = false,
 )

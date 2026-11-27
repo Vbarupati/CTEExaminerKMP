@@ -1,3 +1,4 @@
+
 package com.cte.examiner.data.repository
 
 import com.cte.examiner.data.local.SettingsStore
@@ -14,49 +15,126 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 class AuthRepositoryImpl(
     private val api: CteApi,
     private val settings: SettingsStore
 ) : AuthRepository {
 
-    override suspend fun login(username: String, password: String): Result<Unit> =
-        safeApiCall {
-            val networkIp = fetchNetworkIp()                       // ← was missing
-            println("LOGIN networkIP = '$networkIp'")
+    override suspend fun login(
+        username: String,
+        password: String
+    ): Result<Unit> = safeApiCall {
 
-            val url = settings.urlFor(ApiPaths.LOGIN)
-            val response = api.login(
-                url = url,
-                grantType = LoginParams.GRANT_TYPE,
-                username = username,
-                password = password,
-                userType = LoginParams.USER_TYPE,
-                deviceType = LoginParams.DEVICE_TYPE,
-                rDeviceTid = LoginParams.R_DEVICE_TID,
-                networkIP = networkIp,                              // ← real IP now
-                ipCountry = LoginParams.IP_COUNTRY,
-                accessType = LoginParams.ACCESS_TYPE
-            )
+        val networkIp = fetchNetworkIp()
+        println("LOGIN networkIP = '$networkIp'")
 
-            val bodyText = response.bodyAsText()
+        val url = settings.urlFor(ApiPaths.LOGIN)
 
-            // Surface the REAL server error (no more fake "session expired")
-            if (!response.status.isSuccess()) {
-                val msgCode = response.headers["msgcode"]
-                val detail = if (msgCode != null) "[$msgCode] $bodyText" else bodyText
-                println("LOGIN server error ${response.status.value}: $detail")
-                throw DomainError.Http(response.status.value, detail)
+        val response = api.login(
+            url = url,
+            grantType = LoginParams.GRANT_TYPE,
+            username = username,
+            password = password,
+            userType = LoginParams.USER_TYPE,
+            deviceType = LoginParams.DEVICE_TYPE,
+            rDeviceTid = LoginParams.R_DEVICE_TID,
+            networkIP = networkIp,
+            ipCountry = LoginParams.IP_COUNTRY,
+            accessType = LoginParams.ACCESS_TYPE
+        )
+
+        val bodyText = response.bodyAsText()
+
+        // Handle actual server errors
+        if (!response.status.isSuccess()) {
+            val msgCode = response.headers["msgcode"]
+            val detail = if (msgCode != null) {
+                "[$msgCode] $bodyText"
+            } else {
+                bodyText
             }
 
-            val json = bodyText.toJsonObjectOrNull() ?: throw DomainError.Serialization
-            val token = json.findString("access_token", "token", "accessToken")
-            if (token.isNullOrBlank()) throw DomainError.Unauthorized
-
-            val examiner = json.findString("userName", "fullName", "name") ?: username
-            settings.saveSession(token = token, examinerName = examiner, sessionJson = bodyText)
-            Unit
+            println("LOGIN server error ${response.status.value}: $detail")
+            throw DomainError.Http(response.status.value, detail)
         }
+
+        val json = bodyText.toJsonObjectOrNull()
+            ?: throw DomainError.Serialization
+
+        val token = json.findString(
+            "access_token",
+            "token",
+            "accessToken"
+        )
+
+        if (token.isNullOrBlank()) {
+            throw DomainError.Unauthorized
+        }
+
+        val examiner = json.findString(
+            "userName",
+            "fullName",
+            "name"
+        ) ?: username
+
+        // Save session first so the token is available for getPerson
+        settings.saveSession(
+            token = token,
+            examinerName = examiner,
+            sessionJson = bodyText
+        )
+
+        // Fetch person details using the saved token
+        val person = fetchPerson(json)
+
+        if (person != null) {
+            val merged = buildJsonObject {
+                json.forEach { (key, value) ->
+                    put(key, value)
+                }
+                put("person", person)
+            }
+
+            settings.saveSession(
+                token = token,
+                examinerName = examiner,
+                sessionJson = merged.toString()
+            )
+        }
+
+        Unit
+    }
+
+    /**
+     * Fetch person details using userId or userProfileId.
+     */
+    private suspend fun fetchPerson(login: JsonObject): JsonObject? {
+
+        val ids = listOfNotNull(
+            login.findString("userId"),
+            login.findString("userProfileId")
+        ).distinct()
+
+        for (id in ids) {
+            val resUrl = settings.urlFor(ApiPaths.PERSON + id)
+
+            val res = runCatching {
+                api.getPerson(resUrl)
+            }.getOrNull() ?: continue
+
+            if (res.status.isSuccess()) {
+                res.bodyAsText()
+                    .toJsonObjectOrNull()
+                    ?.let { return it }
+            }
+        }
+
+        return null
+    }
 
     override suspend fun logout(): Result<Unit> = safeApiCall {
         settings.clearSession()
@@ -64,11 +142,16 @@ class AuthRepositoryImpl(
     }
 
     override fun isLoggedIn(): Flow<Boolean> =
-    settings.token.map { !it.isNullOrBlank() }
+        settings.token.map { !it.isNullOrBlank() }
 
-    /** Public IP for the login's networkIP field (like the original app's jsonip.com call). */
+    /**
+     * Fetch public IP for login networkIP field.
+     */
     private suspend fun fetchNetworkIp(): String = runCatching {
         val resp = api.getPublicIp()
-        resp.bodyAsText().toJsonObjectOrNull()?.findString("ip").orEmpty()
+        resp.bodyAsText()
+            .toJsonObjectOrNull()
+            ?.findString("ip")
+            .orEmpty()
     }.getOrDefault("")
 }

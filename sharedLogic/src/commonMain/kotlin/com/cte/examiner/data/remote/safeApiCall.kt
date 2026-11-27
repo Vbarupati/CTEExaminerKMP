@@ -23,12 +23,10 @@ suspend fun <T> safeApiCall(block: suspend () -> T): Result<T> {
     } catch (e: DomainError) {
         Result.failure(e)                         // already a domain error
     } catch (e: ClientRequestException) {
-        val code = e.response.status.value
-        val error = if (e.response.status == HttpStatusCode.Unauthorized) {
-            DomainError.Unauthorized
-        } else {
-            DomainError.Http(code, runCatching { e.response.bodyAsText() }.getOrDefault(""))
-        }
+        val error = if (e.response.status == HttpStatusCode.Unauthorized)
+            DomainError.SessionExpired                       // ← was Unauthorized
+        else
+            DomainError.Http(e.response.status.value, runCatching { e.response.bodyAsText() }.getOrDefault(""))
         Result.failure(error)
     } catch (e: ServerResponseException) {
         Result.failure(DomainError.Http(e.response.status.value, ""))
@@ -41,4 +39,5 @@ suspend fun <T> safeApiCall(block: suspend () -> T): Result<T> {
     } catch (e: Throwable) {
         Result.failure(DomainError.Unknown(e.message ?: "Unexpected error"))
     }
+
 }
