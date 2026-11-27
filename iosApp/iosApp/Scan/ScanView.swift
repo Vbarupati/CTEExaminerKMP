@@ -7,6 +7,7 @@ struct ScanView: View {
 
     @State private var showManual = false
     @State private var confirmLogout = false
+    @State private var errorText: String?
 
     var body: some View {
         NavigationStack {
@@ -69,6 +70,18 @@ struct ScanView: View {
                     vm.onScan(code)
                 }
             }
+            // Surface lookup errors (expired session, code not found, network)
+            .alert("Couldn't find asset", isPresented: Binding(
+                get: { errorText != nil },
+                set: { if !$0 { errorText = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorText ?? "")
+            }
+            .onChange(of: vm.state.errorMessage) { msg in
+                if let msg, !msg.isEmpty { errorText = msg }
+            }
             .onChange(of: vm.state.loggedOut) { out in
                 if out { onLoggedOut() }
             }
@@ -114,6 +127,9 @@ struct ManualCodeSheet: View {
             Form {
                 TextField("Roll no. / QR code", text: $code)
                     .autocorrectionDisabled(true)
+                    .textInputAutocapitalization(.characters)
+                    .submitLabel(.search)
+                    .onSubmit(submit)
             }
             .navigationTitle("Enter code")
             .navigationBarTitleDisplayMode(.inline)
@@ -122,10 +138,16 @@ struct ManualCodeSheet: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Search") { onSubmit(code.trimmingCharacters(in: .whitespaces)) }
-                        .disabled(code.isEmpty)
+                    Button("Search", action: submit)
+                        .disabled(code.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
         }
+    }
+
+    private func submit() {
+        let clean = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !clean.isEmpty else { return }
+        onSubmit(clean)
     }
 }
