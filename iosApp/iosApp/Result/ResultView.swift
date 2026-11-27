@@ -1,7 +1,6 @@
 import SwiftUI
-import SharedLogic   // adjust to your framework's baseName if different
+import SharedLogic
 
-// MARK: - Palette (matches Android ResultScreen.kt exactly)
 private extension Color {
     static let labelGrey      = Color(hex: 0x4A5A6A)
     static let cardBorder     = Color(hex: 0xE2E6EC)
@@ -12,48 +11,36 @@ private extension Color {
     static let errorRed       = Color(hex: 0xD32F2F)
     static let successGreen   = Color(hex: 0x1E8E3E)
     static let infoValue      = Color(hex: 0x14213D)
-
     init(hex: UInt32) {
-        self.init(
-            red:   Double((hex >> 16) & 0xFF) / 255.0,
-            green: Double((hex >> 8)  & 0xFF) / 255.0,
-            blue:  Double(hex & 0xFF)         / 255.0
-        )
+        self.init(red: Double((hex >> 16) & 0xFF)/255.0,
+                  green: Double((hex >> 8) & 0xFF)/255.0,
+                  blue: Double(hex & 0xFF)/255.0)
     }
 }
 
-// MARK: - Screen
 struct ResultView: View {
     @StateObject var vm: ResultViewModel
     let onScanNext: () -> Void
     let onSessionExpired: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            topBar
-            content
-        }
-        .background(Color.pageBackground.ignoresSafeArea())
-        .safeAreaInset(edge: .bottom) { scanNextBar }
-        .onAppear { vm.load() }
+        VStack(spacing: 0) { topBar; content }
+            .background(Color.pageBackground.ignoresSafeArea())
+            .safeAreaInset(edge: .bottom) { scanNextBar }
+            .onAppear { vm.load() }
     }
 
-    // ---- Top bar ----
     private var topBar: some View {
         HStack {
-            Button(action: onScanNext) {
-                Image(systemName: "arrow.left").foregroundColor(.brandBlue)
-            }
+            Button(action: onScanNext) { Image(systemName: "arrow.left").foregroundColor(.brandBlue) }
             Spacer()
             Text("Scan Result").fontWeight(.bold).foregroundColor(.brandBlue)
             Spacer()
-            Image(systemName: "arrow.left").opacity(0)   // balance
+            Image(systemName: "arrow.left").opacity(0)
         }
-        .padding(.horizontal, 16).padding(.vertical, 12)
-        .background(Color.white)
+        .padding(.horizontal, 16).padding(.vertical, 12).background(Color.white)
     }
 
-    // ---- Bottom "Scan Next" ----
     private var scanNextBar: some View {
         Button(action: onScanNext) {
             HStack {
@@ -61,124 +48,87 @@ struct ResultView: View {
                 Text("Scan Next").fontWeight(.bold).font(.system(size: 16))
             }
             .frame(maxWidth: .infinity).frame(height: 54)
-            .foregroundColor(.white)
-            .background(Color.brandBlue)
+            .foregroundColor(.white).background(Color.brandBlue)
             .clipShape(RoundedRectangle(cornerRadius: 14))
         }
-        .padding(16)
-        .background(Color.white.shadow(radius: 4))
+        .padding(16).background(Color.white.shadow(radius: 4))
     }
 
-    // ---- State switch ----
     @ViewBuilder private var content: some View {
         switch vm.state {
         case .loading:
-            VStack(spacing: 12) {
-                ProgressView().tint(.brandOrange)
-                Text("Fetching details…")
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
+            VStack(spacing: 12) { ProgressView().tint(.brandOrange); Text("Fetching details…") }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         case let .error(message, sessionExpired):
             ScrollView {
-                ErrorContent(
-                    message: message,
-                    actionLabel: sessionExpired ? "Login again" : "Retry",
-                    onAction: sessionExpired ? onSessionExpired : vm.load
-                )
+                ErrorContent(message: message,
+                             actionLabel: sessionExpired ? "Login again" : "Retry",
+                             onAction: sessionExpired ? onSessionExpired : vm.load)
             }
-
         case let .success(info):
-            if isAssetNotFound(info) {
-                ScrollView { AssetNotFoundContent(code: info.assetQualityCode) }
-            } else {
-                ScrollView { ResultContent(info: info) }
-            }
+            if isAssetNotFound(info) { ScrollView { AssetNotFoundContent(code: info.assetQualityCode) } }
+            else { ScrollView { ResultContent(info: info) } }
         }
     }
 
     private func isAssetNotFound(_ i: Examinee) -> Bool {
-        (i.ownerName?.isEmpty ?? true) &&
-        (i.product?.isEmpty ?? true) &&
-        (i.batchNumber?.isEmpty ?? true) &&
-        (i.filledAt?.isEmpty ?? true)
+        (i.ownerName?.isEmpty ?? true) && (i.product?.isEmpty ?? true) &&
+        (i.batchNumber?.isEmpty ?? true) && (i.filledAt?.isEmpty ?? true)
     }
 }
 
-// MARK: - Full certificate
 private struct ResultContent: View {
     let info: Examinee
     private var verified: Bool { info.isAllowed }
-    private var assetNo: String {
-        if let a = info.ownerANum, !a.isEmpty { return a }
-        return "—"
-    }
+    private var assetNo: String { if let a = info.ownerANum, !a.isEmpty { return a }; return "—" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            HStack { BrandLogo(); Spacer(); VerificationPill(verified: verified) }
 
-            // HEADER: brand + pill
-            HStack {
-                BrandLogo()
-                Spacer()
-                VerificationPill(verified: verified)
-            }
-
-            // CERTIFICATE INTRO
-            WhiteCard {
+            ResultWhiteCard {
                 CapsLabel(verified ? "● CERTIFICATE VERIFIED" : "● NOT VERIFIED",
                           color: verified ? .brandOrange : .errorRed)
                 (Text("This asset is ").foregroundColor(.brandBlue)
-                 + Text(verified ? "genuine." : "not verified.")
-                    .foregroundColor(verified ? .brandOrange : .errorRed))
+                 + Text(verified ? "genuine." : "not verified.").foregroundColor(verified ? .brandOrange : .errorRed))
                     .font(.system(size: 34, weight: .heavy))
                 Text("This page confirms that the asset below has been verified through Trakaid Assetotrak. The certificate links the asset identity, product details, batch information and delivery status into one digital trust record.")
                     .font(.system(size: 14)).foregroundColor(.labelGrey)
-                HStack(spacing: 8) {
-                    TrustTag("Non-fakeable identity")
-                    TrustTag("Batch-linked origin")
-                }
+                HStack(spacing: 8) { TrustTag("Non-fakeable identity"); TrustTag("Batch-linked origin") }
             }
 
-            // CERTIFICATE OF AUTHENTICITY
-            WhiteCard {
+            ResultWhiteCard {
                 CapsLabel("CERTIFICATE OF AUTHENTICITY", color: .brandOrange)
                 Text("Verified by the Trakaid Digital Trust Network")
                     .font(.system(size: 27, weight: .heavy)).foregroundColor(.brandBlue)
                 RoundedRectangle(cornerRadius: 16).fill(Color(hex: 0xF5F8FC))
                     .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.cardBorder))
-                    .overlay(
-                        VStack(alignment: .leading, spacing: 8) {
-                            CardLabel("ASSET NUMBER")
-                            Text(assetNo).font(.system(size: 32, weight: .heavy)).foregroundColor(.brandBlue)
-                        }.padding(16), alignment: .leading)
+                    .overlay(VStack(alignment: .leading, spacing: 8) {
+                        CardLabel("ASSET NUMBER")
+                        Text(assetNo).font(.system(size: 32, weight: .heavy)).foregroundColor(.brandBlue)
+                    }.padding(16), alignment: .leading)
                     .frame(maxWidth: .infinity, minHeight: 92)
                 HStack {
                     ZStack {
                         Circle().fill(verified ? Color.brandOrange : Color.errorRed).frame(width: 68, height: 68)
                         Text(verified ? "GENUINE\nCERTIFIED" : "NOT\nVERIFIED")
-                            .font(.system(size: 10, weight: .heavy)).multilineTextAlignment(.center)
-                            .foregroundColor(.white)
+                            .font(.system(size: 10, weight: .heavy)).multilineTextAlignment(.center).foregroundColor(.white)
                     }
-                    Text(verified
-                         ? "Certificate data has been matched against the product information."
-                         : "This asset could not be matched against the product records. Please treat it with caution.")
+                    Text(verified ? "Certificate data has been matched against the product information."
+                                  : "This asset could not be matched against the product records. Please treat it with caution.")
                         .font(.system(size: 12)).foregroundColor(verified ? .labelGrey : .errorRed)
                 }
             }
 
-            // ASSET INFORMATION
             CapsLabel("ASSET INFORMATION", color: .brandOrange).font(.system(size: 13, weight: .heavy))
             InfoCardRow("Owner name", info.ownerName, "Product", info.product)
             InfoCardRow("Filled at", info.filledAt, "Batch number", info.batchNumber)
             InfoCardRow("Batch date", info.batchDate, "Expiry date", info.expiryDate)
-            InfoCard("Asset quality code", info.assetQualityCode).frame(maxWidth: .infinity)
+            ResultInfoCard("Asset quality code", info.assetQualityCode).frame(maxWidth: .infinity)
 
-            // DELIVERY STATUS
             DeliveryStatusCard(status: info.status)
 
-            // DIGITAL TRUST PROOF
-            WhiteCard {
+            ResultWhiteCard {
                 CapsLabel("DIGITAL TRUST PROOF", color: .brandOrange)
                 Text("What this certificate confirms").font(.system(size: 20, weight: .heavy)).foregroundColor(.brandBlue)
                 CheckLine("The asset number is linked to a specific product and owner record.")
@@ -187,18 +137,15 @@ private struct ResultContent: View {
                 CheckLine("The certificate creates a customer-facing proof point for authenticity and trust.")
             }
 
-            // DIGITAL TRAIL
-            WhiteCard {
+            ResultWhiteCard {
                 CapsLabel("DIGITAL TRAIL", color: .brandOrange)
                 Text("Asset verification flow").font(.system(size: 20, weight: .heavy)).foregroundColor(.brandBlue)
                 StepRow(1, "Asset identified", "Asset number \(assetNo) is attached to the physical item.", last: false)
                 StepRow(2, "Batch recorded", "Batch \(info.batchNumber ?? "—") is linked to the product record.", last: false)
                 StepRow(3, "Certificate generated", "The customer can scan the QR code to view the certificate page.", last: false)
-                StepRow(4, "Delivery status",
-                        (info.status?.isEmpty == false ? info.status! : "Status not available"), last: true)
+                StepRow(4, "Delivery status", (info.status?.isEmpty == false ? info.status! : "Status not available"), last: true)
             }
 
-            // FOOTER
             Text("Trakaid Assetotrak · Certificate of Authenticity")
                 .font(.system(size: 12, weight: .bold)).foregroundColor(.brandBlue)
             Text("Protected digital trust record · support@trakaid.com")
@@ -208,13 +155,12 @@ private struct ResultContent: View {
     }
 }
 
-// MARK: - Asset Not Found
 private struct AssetNotFoundContent: View {
     let code: String?
     var body: some View {
         VStack(spacing: 14) {
             HStack { BrandLogo(); Spacer(); VerificationPill(verified: false) }
-            WhiteCard {
+            ResultWhiteCard {
                 CapsLabel("● NOT VERIFIED", color: .errorRed)
                 (Text("This asset is ").foregroundColor(.brandBlue)
                  + Text("not verified").foregroundColor(.errorRed)
@@ -232,11 +178,10 @@ private struct AssetNotFoundContent: View {
                 if let code, !code.isEmpty {
                     RoundedRectangle(cornerRadius: 12).fill(Color.white)
                         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.cardBorder))
-                        .overlay(
-                            VStack(spacing: 4) {
-                                CardLabel("ASSET QUALITY CODE")
-                                Text(code).font(.system(size: 16, weight: .heavy)).foregroundColor(.brandBlue)
-                            }.padding(.horizontal, 24).padding(.vertical, 12))
+                        .overlay(VStack(spacing: 4) {
+                            CardLabel("ASSET QUALITY CODE")
+                            Text(code).font(.system(size: 16, weight: .heavy)).foregroundColor(.brandBlue)
+                        }.padding(.horizontal, 24).padding(.vertical, 12))
                         .fixedSize()
                 }
             }.padding(.top, 8)
@@ -245,10 +190,8 @@ private struct AssetNotFoundContent: View {
     }
 }
 
-// MARK: - Shared helpers
 private struct BrandLogo: View {
     var body: some View {
-        // Add "trakaid_logo" to Assets.xcassets. Falls back to text if missing.
         if UIImage(named: "trakaid_logo") != nil {
             Image("trakaid_logo").resizable().scaledToFit().frame(height: 56)
         } else {
@@ -269,12 +212,11 @@ private struct VerificationPill: View {
             .padding(.horizontal, 10).padding(.vertical, 9)
             .background(verified ? Color(hex: 0xE8F7EE) : Color.errorRed.opacity(0.10))
             .clipShape(RoundedRectangle(cornerRadius: 30))
-            .overlay(RoundedRectangle(cornerRadius: 30)
-                .stroke(verified ? Color(hex: 0xB8E3C8) : Color.errorRed.opacity(0.4)))
+            .overlay(RoundedRectangle(cornerRadius: 30).stroke(verified ? Color(hex: 0xB8E3C8) : Color.errorRed.opacity(0.4)))
     }
 }
 
-private struct WhiteCard<Content: View>: View {
+private struct ResultWhiteCard<Content: View>: View {
     @ViewBuilder let content: Content
     var body: some View {
         VStack(alignment: .leading, spacing: 12) { content }
@@ -300,20 +242,19 @@ private struct InfoCardRow: View {
     init(_ l1: String, _ v1: String?, _ l2: String, _ v2: String?) { self.l1=l1; self.v1=v1; self.l2=l2; self.v2=v2 }
     var body: some View {
         HStack(spacing: 12) {
-            InfoCard(l1, v1).frame(maxWidth: .infinity)
-            InfoCard(l2, v2).frame(maxWidth: .infinity)
+            ResultInfoCard(l1, v1).frame(maxWidth: .infinity)
+            ResultInfoCard(l2, v2).frame(maxWidth: .infinity)
         }
     }
 }
 
-private struct InfoCard: View {
+private struct ResultInfoCard: View {
     let label: String, value: String?
     init(_ label: String, _ value: String?) { self.label = label; self.value = value }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             CardLabel(label.uppercased())
-            Text(value?.isEmpty == false ? value! : "—")
-                .font(.system(size: 17, weight: .heavy)).foregroundColor(.infoValue)
+            Text(value?.isEmpty == false ? value! : "—").font(.system(size: 17, weight: .heavy)).foregroundColor(.infoValue)
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white).clipShape(RoundedRectangle(cornerRadius: 16))
@@ -327,8 +268,7 @@ private struct DeliveryStatusCard: View {
         let text = (status?.isEmpty == false) ? status! : "Status not available"
         let lower = text.lowercased()
         let delivered = lower.contains("deliver") && !lower.contains("not")
-        let pending = lower.contains("not yet") || lower.contains("pending")
-            || lower.contains("not deliver") || lower.contains("awaiting")
+        let pending = lower.contains("not yet") || lower.contains("pending") || lower.contains("not deliver") || lower.contains("awaiting")
         let accent: Color = delivered ? .successGreen : (pending ? .pendingAmber : .brandBlue)
         return VStack(alignment: .leading, spacing: 10) {
             CardLabel("DELIVERY STATUS")
@@ -374,17 +314,13 @@ private struct StepRow: View {
 private struct CardLabel: View {
     let text: String
     init(_ text: String) { self.text = text }
-    var body: some View {
-        Text(text.uppercased()).font(.system(size: 11, weight: .heavy)).foregroundColor(.labelGrey)
-    }
+    var body: some View { Text(text.uppercased()).font(.system(size: 11, weight: .heavy)).foregroundColor(.labelGrey) }
 }
 
 private struct CapsLabel: View {
     let text: String; let color: Color
     init(_ text: String, color: Color) { self.text = text; self.color = color }
-    var body: some View {
-        Text(text).font(.system(size: 11, weight: .heavy)).foregroundColor(color)
-    }
+    var body: some View { Text(text).font(.system(size: 11, weight: .heavy)).foregroundColor(color) }
 }
 
 private struct ErrorContent: View {
