@@ -20,14 +20,14 @@ private extension Color {
 
 struct ResultView: View {
     @StateObject var vm: ResultViewModel
+    let code: String
     let onScanNext: () -> Void
-    let onSessionExpired: () -> Void
 
     var body: some View {
         VStack(spacing: 0) { topBar; content }
             .background(Color.pageBackground.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) { scanNextBar }
-            .onAppear { vm.load() }
+            .onAppear { vm.lookup(code) }
     }
 
     private var topBar: some View {
@@ -55,19 +55,14 @@ struct ResultView: View {
     }
 
     @ViewBuilder private var content: some View {
-        switch vm.state {
-        case .loading:
-            VStack(spacing: 12) { ProgressView().tint(.brandOrange); Text("Fetching details…") }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case let .error(message, sessionExpired):
-            ScrollView {
-                ErrorContent(message: message,
-                             actionLabel: sessionExpired ? "Login again" : "Retry",
-                             onAction: sessionExpired ? onSessionExpired : vm.load)
-            }
-        case let .success(info):
+        if let message = vm.errorMessage {
+            ScrollView { ErrorContent(message: message, actionLabel: "Scan again", onAction: onScanNext) }
+        } else if let info = vm.examinee {
             if isAssetNotFound(info) { ScrollView { AssetNotFoundContent(code: info.assetQualityCode) } }
             else { ScrollView { ResultContent(info: info) } }
+        } else {
+            VStack(spacing: 12) { ProgressView().tint(.brandOrange); Text("Fetching details…") }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -143,7 +138,7 @@ private struct ResultContent: View {
                 StepRow(1, "Asset identified", "Asset number \(assetNo) is attached to the physical item.", last: false)
                 StepRow(2, "Batch recorded", "Batch \(info.batchNumber ?? "—") is linked to the product record.", last: false)
                 StepRow(3, "Certificate generated", "The customer can scan the QR code to view the certificate page.", last: false)
-                StepRow(4, "Delivery status", (info.status?.isEmpty == false ? info.status! : "Status not available"), last: true)
+                StepRow(4, "Delivery status", (info.status.isEmpty ? "Status not available" : info.status), last: true)
             }
 
             Text("Trakaid Assetotrak · Certificate of Authenticity")
@@ -221,8 +216,7 @@ private struct ResultWhiteCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) { content }
             .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .background(Color.white).clipShape(RoundedRectangle(cornerRadius: 20))
             .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.cardBorder))
     }
 }
@@ -263,9 +257,9 @@ private struct ResultInfoCard: View {
 }
 
 private struct DeliveryStatusCard: View {
-    let status: String?
+    let status: String
     var body: some View {
-        let text = (status?.isEmpty == false) ? status! : "Status not available"
+        let text = status.isEmpty ? "Status not available" : status
         let lower = text.lowercased()
         let delivered = lower.contains("deliver") && !lower.contains("not")
         let pending = lower.contains("not yet") || lower.contains("pending") || lower.contains("not deliver") || lower.contains("awaiting")
